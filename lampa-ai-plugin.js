@@ -233,6 +233,30 @@
       field: { name: 'Макс. токенов' },
       onChange: function (v) { var x = gc(); x.max_tokens = parseInt(v); sc(x); }
     });
+
+    // Кнопка "Открыть AI чат" прямо в настройках
+    Lampa.SettingsApi.addParam({
+      component: 'ai_assistant',
+      param: { type: 'button' },
+      field: { name: 'Открыть AI чат', description: 'Запустить AI-ассистент' },
+      onChange: function () {
+        openAI();
+      }
+    });
+
+    // Кнопка-ссылка в разделе "Интерфейс" — гарантированно видна
+    Lampa.SettingsApi.addParam({
+      component: 'interface',
+      param: { type: 'button' },
+      field: { name: 'AI Ассистент', description: 'Настройки и чат с нейросетью' },
+      onChange: function () {
+        Lampa.Settings.create('ai_assistant', {
+          onBack: function () {
+            Lampa.Settings.create('interface');
+          }
+        });
+      }
+    });
   }
 
   // ====== INIT — setInterval ждёт DOM ======
@@ -271,14 +295,4 @@
             'width:2.2em;height:2.2em;border-radius:0.3em;cursor:pointer;flex-shrink:0;' +
           '">' + AI_SVG + '</div>'
         );
-        btn.on('hover:enter', openAI);
-        search.before(btn);
-      }
-    }
-
-    if (menuAdded && headAdded) clearInterval(interval);
-  }, 1000);
-
-  // Автостоп через 30 сек
-  setTimeout(function () { clearInterval(interval); }, 30000);
-})();
+        btn.on('hover:enter', openA
