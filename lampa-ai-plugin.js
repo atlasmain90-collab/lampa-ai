@@ -6,7 +6,7 @@
 
   var STORAGE_KEY = 'ai_assistant_config';
 
-  var AI_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
+  var AI_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>';
 
   var PROVIDERS = {
     gemini: {
@@ -112,7 +112,7 @@
 
       body.html(
         '<div style="display:flex;align-items:center;gap:0.8em;margin-bottom:1.5em;">' +
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="#e94560"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' +
+          '<svg width="28" height="28" viewBox="0 0 24 24" fill="#e94560"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>' +
           '<h2 style="margin:0;color:#fff;">AI Ассистент</h2>' +
         '</div>' +
         '<div class="ai-chat-messages" style="' +
@@ -167,7 +167,6 @@
 
       Lampa.Controller.toggle('ai_content');
 
-      var self = this;
       setTimeout(function () {
         body.find('.ai-chat-send').on('hover:enter', function () {
           var input = body.find('.ai-chat-input');
@@ -194,60 +193,6 @@
       scroll.destroy();
       html.remove();
     };
-  }
-
-  // ====== MENU + HEADER ======
-
-  function addMenu() {
-    if ($('[data-action="ai_assistant"]').length) return;
-
-    var item = $(
-      '<li class="menu__item selector" data-action="ai_assistant">' +
-        '<div class="menu__ico">' + AI_SVG + '</div>' +
-        '<div class="menu__text">AI Ассистент</div>' +
-      '</li>'
-    );
-
-    item.on('hover:enter', openAI);
-    $('.menu .menu__list').eq(0).append(item);
-  }
-
-  function addHeaderButton() {
-    if ($('[data-action="ai_head"]').length) return;
-
-    var btn = $(
-      '<div class="selector open--ai-assistant" data-action="ai_head" style="' +
-        'display:inline-flex;align-items:center;justify-content:center;' +
-        'width:2.2em;height:2.2em;border-radius:0.3em;cursor:pointer;flex-shrink:0;' +
-      '">' + AI_SVG + '</div>'
-    );
-
-    btn.on('hover:enter', openAI);
-
-    // Пробуем разные селекторы шапки
-    var search = $('.head__actions .open--search');
-    if (search.length) {
-      search.before(btn);
-      return;
-    }
-
-    var settings = $('.head__actions .open--settings');
-    if (settings.length) {
-      settings.before(btn);
-      return;
-    }
-
-    var headActions = $('.head__actions');
-    if (headActions.length) {
-      headActions.prepend(btn);
-      return;
-    }
-
-    // Fallback: ищем любую шапку
-    var header = $('.head, .header, .top-header, #header, .app-header').eq(0);
-    if (header.length) {
-      header.append(btn);
-    }
   }
 
   // ====== SETTINGS ======
@@ -290,38 +235,50 @@
     });
   }
 
-  // ====== INIT ======
+  // ====== INIT — setInterval ждёт DOM ======
 
-  function init() {
-    console.log('AI Assistant: init');
+  Lampa.Component.add('ai_assistant', AiComponent);
+  addSettings();
 
-    Lampa.Component.add('ai_assistant', AiComponent);
-    addSettings();
+  var menuAdded = false;
+  var headAdded = false;
 
-    // Пробуем сразу
-    addMenu();
-    addHeaderButton();
-
-    // Пробуем через таймаут (как podbor плагин)
-    setTimeout(function () {
-      addMenu();
-      addHeaderButton();
-    }, 500);
-
-    setTimeout(function () {
-      addMenu();
-      addHeaderButton();
-    }, 2000);
-  }
-
-  // Ждём готовности
-  if (window.appready) {
-    init();
-  } else {
-    Lampa.Listener.follow('app', function (e) {
-      if (e.type === 'ready') {
-        init();
+  var interval = setInterval(function () {
+    // Ищем меню
+    if (!menuAdded) {
+      var menu = $('.menu .menu__list');
+      if (menu.length) {
+        menuAdded = true;
+        var item = $(
+          '<li class="menu__item selector" data-action="ai_assistant">' +
+            '<div class="menu__ico">' + AI_SVG + '</div>' +
+            '<div class="menu__text">AI Ассистент</div>' +
+          '</li>'
+        );
+        item.on('hover:enter', openAI);
+        menu.eq(0).append(item);
       }
-    });
-  }
+    }
+
+    // Ищем шапку
+    if (!headAdded) {
+      var search = $('.head__actions .open--search');
+      if (search.length) {
+        headAdded = true;
+        var btn = $(
+          '<div class="selector open--ai-assistant" data-action="ai_head" style="' +
+            'display:inline-flex;align-items:center;justify-content:center;' +
+            'width:2.2em;height:2.2em;border-radius:0.3em;cursor:pointer;flex-shrink:0;' +
+          '">' + AI_SVG + '</div>'
+        );
+        btn.on('hover:enter', openAI);
+        search.before(btn);
+      }
+    }
+
+    if (menuAdded && headAdded) clearInterval(interval);
+  }, 1000);
+
+  // Автостоп через 30 сек
+  setTimeout(function () { clearInterval(interval); }, 30000);
 })();
