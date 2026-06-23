@@ -2,74 +2,67 @@
   "use strict";
 
   if (window.plugin_ai_assistant) return;
+  window.plugin_ai_assistant = true;
 
   var STORAGE_KEY = "ai_assistant_config";
+
+  var AI_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
 
   var PROVIDERS = {
     gemini: {
       name: "Google Gemini",
-      buildUrl: function (k) {
-        return "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + k;
-      },
-      buildBody: function (p, c) {
-        return JSON.stringify({ contents: [{ parts: [{ text: p }] }], generationConfig: { temperature: c.temperature, maxOutputTokens: c.max_tokens } });
-      },
+      buildUrl: function (k) { return "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + k; },
+      buildBody: function (p, c) { return JSON.stringify({ contents: [{ parts: [{ text: p }] }], generationConfig: { temperature: c.temperature, maxOutputTokens: c.max_tokens } }); },
       parse: function (d) { return d.candidates && d.candidates[0] ? d.candidates[0].content.parts[0].text : ""; },
       headers: function () { return { "Content-Type": "application/json" }; }
     },
     openai: {
       name: "OpenAI",
       buildUrl: function () { return "https://api.openai.com/v1/chat/completions"; },
-      buildBody: function (p, c) {
-        return JSON.stringify({ model: "gpt-3.5-turbo", messages: [{ role: "user", content: p }], temperature: c.temperature, max_tokens: c.max_tokens });
-      },
+      buildBody: function (p, c) { return JSON.stringify({ model: "gpt-3.5-turbo", messages: [{ role: "user", content: p }], temperature: c.temperature, max_tokens: c.max_tokens }); },
       parse: function (d) { return d.choices && d.choices[0] ? d.choices[0].message.content : ""; },
       headers: function (k) { return { "Content-Type": "application/json", Authorization: "Bearer " + k }; }
     },
     groq: {
       name: "Groq (Llama)",
       buildUrl: function () { return "https://api.groq.com/openai/v1/chat/completions"; },
-      buildBody: function (p, c) {
-        return JSON.stringify({ model: "llama3-70b-8192", messages: [{ role: "user", content: p }], temperature: c.temperature, max_tokens: c.max_tokens });
-      },
+      buildBody: function (p, c) { return JSON.stringify({ model: "llama3-70b-8192", messages: [{ role: "user", content: p }], temperature: c.temperature, max_tokens: c.max_tokens }); },
       parse: function (d) { return d.choices && d.choices[0] ? d.choices[0].message.content : ""; },
       headers: function (k) { return { "Content-Type": "application/json", Authorization: "Bearer " + k }; }
     },
     anthropic: {
       name: "Claude",
       buildUrl: function () { return "https://api.anthropic.com/v1/messages"; },
-      buildBody: function (p, c) {
-        return JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: c.max_tokens, messages: [{ role: "user", content: p }] });
-      },
+      buildBody: function (p, c) { return JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: c.max_tokens, messages: [{ role: "user", content: p }] }); },
       parse: function (d) { return d.content && d.content[0] ? d.content[0].text : ""; },
       headers: function (k) { return { "Content-Type": "application/json", "x-api-key": k, "anthropic-version": "2023-06-01" }; }
     }
   };
 
-  var SYS_PROMPT = "Ты — AI-ассистент для кинотеатра Lampa. Отвечай кратко на русском. Помогай с фильмами, сериалами, актёрами, рекомендациями.";
+  var SYS = "Ты — AI-ассистент для кинотеатра Lampa. Отвечай кратко на русском. Помогай с фильмами, сериалами, актёрами, рекомендациями.";
 
-  function cfg() {
+  function gc() {
     var s = Lampa.Storage.get(STORAGE_KEY);
     return s && typeof s === "object" ? s : { provider: "gemini", api_key: "", temperature: 0.7, max_tokens: 1024 };
   }
 
-  function saveCfg(c) { Lampa.Storage.set(STORAGE_KEY, c); }
+  function sc(c) { Lampa.Storage.set(STORAGE_KEY, c); }
 
   function askAI(prompt, cb) {
-    var c = cfg();
-    var p = PROVIDERS[c.provider];
-    if (!p) return cb("Провайдер не выбран");
+    var c = gc();
+    var pr = PROVIDERS[c.provider];
+    if (!pr) return cb("Провайдер не выбран");
     if (!c.api_key) return cb("Введите API-ключ");
 
     $.ajax({
-      url: p.buildUrl(c.api_key),
+      url: pr.buildUrl(c.api_key),
       type: "POST",
-      headers: p.headers(c.api_key),
-      data: p.buildBody(SYS_PROMPT + "\n\nПользователь: " + prompt, c),
+      headers: pr.headers(c.api_key),
+      data: pr.buildBody(SYS + "\n\nПользователь: " + prompt, c),
       contentType: "application/json",
       dataType: "json",
       timeout: 30000,
-      success: function (d) { try { cb(null, p.parse(d)); } catch (e) { cb("Ошибка ответа"); } },
+      success: function (d) { try { cb(null, pr.parse(d)); } catch (e) { cb("Ошибка ответа"); } },
       error: function (x) { cb(x.responseJSON && x.responseJSON.error ? x.responseJSON.error.message : "Ошибка запроса"); }
     });
   }
@@ -84,12 +77,11 @@
 
     this.render = function () {
       var el = $('<div class="ai-assistant-page"></div>');
-      var c = cfg();
 
       el.html(
         '<div style="padding:2em;">' +
           '<div style="display:flex;align-items:center;gap:1em;margin-bottom:1.5em;">' +
-            '<svg width="32" height="32" viewBox="0 0 24 24" fill="#e94560"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>' +
+            AI_SVG.replace('width="24" height="24"', 'width="32" height="32"').replace('fill="currentColor"', 'fill="#e94560"') +
             '<h2 style="margin:0;color:#fff;">AI Ассистент</h2>' +
           '</div>' +
           '<div class="ai-chat-messages" style="' +
@@ -106,7 +98,7 @@
             '<button class="ai-chat-send selector" style="' +
               'background:#e94560;border:none;border-radius:6px;padding:0.8em 1.5em;' +
               'color:#fff;font-weight:bold;cursor:pointer;font-size:1em;' +
-            '">→</button>' +
+            '">Отправить</button>' +
           '</div>' +
         '</div>'
       );
@@ -158,79 +150,163 @@
   }
 
   function addSettingsPage() {
-    var c = cfg();
-    var opts = "";
-    Object.keys(PROVIDERS).forEach(function (k) {
-      opts += '<option value="' + k + '"' + (k === c.provider ? " selected" : "") + ">" + PROVIDERS[k].name + "</option>";
-    });
+    var c = gc();
 
     Lampa.SettingsApi.addComponent({
       component: "ai_assistant",
       name: "AI Ассистент",
-      icon: '<svg height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>'
+      icon: AI_SVG
     });
 
     Lampa.SettingsApi.addParam({
       component: "ai_assistant",
       param: { name: "ai_provider", type: "select", values: { gemini: "Google Gemini", openai: "OpenAI", groq: "Groq (Llama)", anthropic: "Claude" }, default: c.provider },
       field: { name: "Провайдер" },
-      onChange: function (v) { var x = cfg(); x.provider = v; saveCfg(x); }
+      onChange: function (v) { var x = gc(); x.provider = v; sc(x); }
     });
 
     Lampa.SettingsApi.addParam({
       component: "ai_assistant",
       param: { name: "ai_apikey", type: "input", default: c.api_key },
       field: { name: "API-ключ", description: "Ключ от выбранного провайдера" },
-      onChange: function (v) { var x = cfg(); x.api_key = v; saveCfg(x); }
+      onChange: function (v) { var x = gc(); x.api_key = v; sc(x); }
     });
 
     Lampa.SettingsApi.addParam({
       component: "ai_assistant",
-      param: { name: "ai_temp", type: "select", values: { 0: "0", "0.3": "0.3", "0.5": "0.5", "0.7": "0.7", "1": "1" }, default: String(c.temperature) },
+      param: { name: "ai_temp", type: "select", values: { 0: "0", "0.3": "0.3", "0.5": "0.5", "0.7": "0.7", 1: "1" }, default: String(c.temperature) },
       field: { name: "Temperature" },
-      onChange: function (v) { var x = cfg(); x.temperature = parseFloat(v); saveCfg(x); }
+      onChange: function (v) { var x = gc(); x.temperature = parseFloat(v); sc(x); }
     });
 
     Lampa.SettingsApi.addParam({
       component: "ai_assistant",
       param: { name: "ai_tokens", type: "select", values: { 256: "256", 512: "512", 1024: "1024", 2048: "2048" }, default: String(c.max_tokens) },
       field: { name: "Макс. токенов" },
-      onChange: function (v) { var x = cfg(); x.max_tokens = parseInt(v); saveCfg(x); }
+      onChange: function (v) { var x = gc(); x.max_tokens = parseInt(v); sc(x); }
+    });
+  }
+
+  function openAI() {
+    Lampa.Activity.push({
+      url: "?component=ai_assistant",
+      title: "AI Ассистент",
+      component: "ai_assistant"
     });
   }
 
   function addMenu() {
-    var ico =
-      '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
+    if ($('[data-action="ai_assistant"]').length) return;
 
     var item = $(
       '<li class="menu__item selector" data-action="ai_assistant">' +
-        '<div class="menu__ico">' + ico + "</div>" +
+        '<div class="menu__ico">' + AI_SVG + '</div>' +
         '<div class="menu__text">AI Ассистент</div>' +
       '</li>'
     );
 
-    item.on("hover:enter", function () {
-      Lampa.Activity.push({
-        url: "?component=ai_assistant",
-        title: "AI Ассистент",
-        component: "ai_assistant"
-      });
-    });
+    item.on("hover:enter", openAI);
 
-    $(".menu .menu__list").eq(0).append(item);
+    var lists = $(".menu .menu__list");
+    if (lists.length) {
+      lists.eq(0).append(item);
+    }
+  }
+
+  function addHeaderButton() {
+    if ($("#ai-header-btn").length) return;
+
+    var btn = $(
+      '<div id="ai-header-btn" class="start-new__icon selector" style="' +
+        'display:inline-flex;align-items:center;justify-content:center;' +
+        'width:40px;height:40px;border-radius:50%;background:#e94560;' +
+        'cursor:pointer;margin-left:10px;flex-shrink:0;' +
+      '">' +
+        AI_SVG.replace('fill="currentColor"', 'fill="#fff"') +
+      '</div>'
+    );
+
+    btn.on("hover:enter", openAI);
+
+    var header = $(".head__actions");
+    if (header.length) {
+      header.eq(0).prepend(btn);
+    } else {
+      var alt = $(".header, .head, .top-header, .app-header, #header").eq(0);
+      if (alt.length) alt.append(btn);
+    }
+  }
+
+  function addContextMenu() {
+    if ($('[data-action="ai_context"]').length) return;
+
+    Lampa.Listener.follow("full", function (e) {
+      if (e.type === "complite") {
+        var render = e.object.activity.render();
+        if (!render || !render.length) return;
+        if ($('[data-action="ai_context"]', render).length) return;
+
+        var movie = e.data && e.data.movie ? e.data.movie : null;
+        var title = movie ? (movie.title || movie.name || "") : "";
+
+        var btn = $(
+          '<div class="full-start__button selector" data-action="ai_context" style="' +
+            'background:#e94560;border-radius:8px;padding:8px 16px;color:#fff;' +
+            'font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;' +
+            'margin-top:10px;' +
+          '">' +
+            AI_SVG.replace('fill="currentColor"', 'fill="#fff"').replace('width="24" height="24"', 'width="16" height="16"') +
+            '<span>AI: узнать больше</span>' +
+          '</div>'
+        );
+
+        btn.on("hover:enter", function () {
+          var c = gc();
+          if (!c.api_key) {
+            Lampa.Noty.show("Введите API-ключ в настройках → AI Ассистент");
+            return;
+          }
+          var query = title ? "Расскажи подробнее о фильме «" + title + "»" : "Что нового в кино?";
+          Lampa.Activity.push({
+            url: "?component=ai_assistant",
+            title: "AI: " + title,
+            component: "ai_assistant"
+          });
+          setTimeout(function () {
+            var page = $(".ai-assistant-page");
+            if (page.length) {
+              var input = page.find(".ai-chat-input");
+              input.val(query);
+              page.find(".ai-chat-send").trigger("hover:enter");
+            }
+          }, 500);
+        });
+
+        var container = render.find(".full-start__buttons, .full-start-new__buttons, .full-start__right");
+        if (container.length) {
+          container.eq(0).append(btn);
+        } else {
+          render.find(".full-start-new__title, .full-start__title").eq(0).after(btn);
+        }
+      }
+    });
   }
 
   function startPlugin() {
-    window.plugin_ai_assistant = true;
     Lampa.Component.add("ai_assistant", AiComponent);
     addSettingsPage();
 
     if (window.appready) {
       addMenu();
+      addHeaderButton();
+      addContextMenu();
     } else {
       Lampa.Listener.follow("app", function (e) {
-        if (e.type === "ready") addMenu();
+        if (e.type === "ready") {
+          addMenu();
+          addHeaderButton();
+          addContextMenu();
+        }
       });
     }
   }
